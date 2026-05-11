@@ -1,6 +1,6 @@
 # LDAPts
 
-This is a fork of [ldapts](https://github.com/ldapts/ldapts) to remove internal references to Node.js APIs, to make it more portable, with the intent of making it usable in the browser.
+This is a fork of [ldapts](https://github.com/ldapts/ldapts) that is intended to be more portable, so that it can be built with something like Browserify.
 
 Note: this fork is intentionally behind upstream as they have some broken auto dependency management bot
 that causes commits after `9fd3310b259b157798abc1065a47e86a03f7ba49` to have broken dependencies. <https://github.com/ldapts/ldapts/issues/415>
@@ -60,15 +60,16 @@ The code to create a new client looks like:
 
 ```ts
 import { Client } from 'ldapts';
+import { connect as createConnection } from 'node:net';
+import { connect as createSecureConnection } from 'node:tls';
 
 const client = new Client({
   url: 'ldaps://ldap.jumpcloud.com',
   timeout: 0,
   connectTimeout: 0,
-  tlsOptions: {
-    minVersion: 'TLSv1.2',
-  },
   strictDN: true,
+  createConnection,
+  createSecureConnection,
 });
 ```
 
@@ -77,13 +78,14 @@ that this will not use the LDAP TLS extended operation, but literally an SSL
 connection to port 636, as in LDAP v2). The full set of options to create a
 client is:
 
-| Attribute      | Description                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------ |
-| url            | A valid LDAP URL (proto/host/port only)                                                    |
-| timeout        | Milliseconds client should let operations live for before timing out (Default: Infinity)   |
-| connectTimeout | Milliseconds client should wait before timing out on TCP connections (Default: OS default) |
-| tlsOptions     | TLS [connect() options](https://nodejs.org/api/tls.html#tls_tls_connect_options_callback)  |
-| strictDN       | Force strict DN parsing for client methods (Default is true)                               |
+| Attribute              | Description                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| createConnection       | TCP connection factory function. You probably just want to directly pass `net.connect` here. |
+| createSecureConnection | TLS connection factory function. You probably just want to directly pass `tls.connect` here. |
+| url                    | A valid LDAP URL (proto/host/port only)                                                      |
+| timeout                | Milliseconds client should let operations live for before timing out (Default: Infinity)     |
+| connectTimeout         | Milliseconds client should wait before timing out on TCP connections (Default: OS default)   |
+| strictDN               | Force strict DN parsing for client methods (Default is true)                                 |
 
 ### Specifying Controls
 

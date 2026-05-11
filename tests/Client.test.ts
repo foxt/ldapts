@@ -1,12 +1,14 @@
 import { promises as fs } from 'node:fs';
+import { connect as createConnection } from 'node:net';
 import * as path from 'node:path';
+import { connect as createSecureConnection } from 'node:tls';
 import { fileURLToPath } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { type BerReader, type BerWriter } from '../src/ber/index.js';
-import { type AddRequest, type ModifyDNRequest } from '../src/index.js';
 import {
+  type AddRequest,
   AddResponse,
   AndFilter,
   Attribute,
@@ -16,6 +18,7 @@ import {
   EqualityFilter,
   InvalidCredentialsError,
   InvalidDNSyntaxError,
+  type ModifyDNRequest,
   ModifyDNResponse,
   NoSuchObjectError,
   PagedResultsControl,
@@ -38,6 +41,8 @@ describe('Client', () => {
       expect((): void => {
         new Client({
           url,
+          createConnection,
+          createSecureConnection,
         });
       }).toThrow(`${url} is an invalid LDAP URL (protocol)`);
     });
@@ -47,6 +52,8 @@ describe('Client', () => {
       expect((): void => {
         new Client({
           url,
+          createConnection,
+          createSecureConnection,
         });
       }).not.toThrow();
     });
@@ -56,49 +63,28 @@ describe('Client', () => {
       expect((): void => {
         new Client({
           url,
+          createConnection,
+          createSecureConnection,
         });
       }).not.toThrow();
     });
 
-    it('should not enable secure mode with empty tlsOptions object', () => {
+    it('should not enable secure mode with plain url', () => {
       const client = new Client({
         url: 'ldap://127.0.0.1',
-        tlsOptions: {},
+        createConnection,
+        createSecureConnection,
       });
 
       // @ts-expect-error - private field
       expect(client.secure).toBe(false);
-    });
-
-    it('should not enable secure mode with tlsOptions containing only undefined values', () => {
-      const client = new Client({
-        url: 'ldap://127.0.0.1',
-        tlsOptions: {
-          rejectUnauthorized: undefined,
-          ca: undefined,
-        },
-      });
-
-      // @ts-expect-error - private field
-      expect(client.secure).toBe(false);
-    });
-
-    it('should enable secure mode with tlsOptions containing defined values', () => {
-      const client = new Client({
-        url: 'ldap://127.0.0.1',
-        tlsOptions: {
-          rejectUnauthorized: false,
-        },
-      });
-
-      // @ts-expect-error - private field
-      expect(client.secure).toBe(true);
     });
 
     it('should enable secure mode with ldaps:// even with empty tlsOptions', () => {
       const client = new Client({
         url: 'ldaps://127.0.0.1',
-        tlsOptions: {},
+        createConnection,
+        createSecureConnection,
       });
 
       // @ts-expect-error - private field
@@ -110,6 +96,8 @@ describe('Client', () => {
       it('should parse ldap URL with explicit port', () => {
         const client = new Client({
           url: 'ldap://localhost:389',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -123,6 +111,8 @@ describe('Client', () => {
       it('should parse ldaps URL with explicit port', () => {
         const client = new Client({
           url: 'ldaps://localhost:636',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -136,6 +126,8 @@ describe('Client', () => {
       it('should use default port 389 for ldap URL without port', () => {
         const client = new Client({
           url: 'ldap://localhost',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -145,6 +137,8 @@ describe('Client', () => {
       it('should use default port 636 for ldaps URL without port', () => {
         const client = new Client({
           url: 'ldaps://localhost',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -154,6 +148,8 @@ describe('Client', () => {
       it('should parse IPv4 address', () => {
         const client = new Client({
           url: 'ldap://192.168.1.1:389',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -165,6 +161,8 @@ describe('Client', () => {
       it('should parse IPv6 address with brackets', () => {
         const client = new Client({
           url: 'ldap://[::1]:389',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -177,6 +175,8 @@ describe('Client', () => {
       it('should parse full IPv6 address', () => {
         const client = new Client({
           url: 'ldap://[2001:db8:85a3::8a2e:370:7334]:389',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -191,6 +191,8 @@ describe('Client', () => {
       it('should parse IPv6 address without port', () => {
         const client = new Client({
           url: 'ldap://[::1]',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -202,6 +204,8 @@ describe('Client', () => {
       it('should parse hostname with subdomain', () => {
         const client = new Client({
           url: 'ldap://ldap.example.com:389',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -211,6 +215,8 @@ describe('Client', () => {
       it('should use custom port when specified', () => {
         const client = new Client({
           url: 'ldap://localhost:1389',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -221,6 +227,8 @@ describe('Client', () => {
         expect((): void => {
           new Client({
             url: 'http://localhost:389',
+            createConnection,
+            createSecureConnection,
           });
         }).toThrow('http://localhost:389 is an invalid LDAP URL (protocol)');
       });
@@ -229,6 +237,8 @@ describe('Client', () => {
         expect((): void => {
           new Client({
             url: 'https://localhost:389',
+            createConnection,
+            createSecureConnection,
           });
         }).toThrow('https://localhost:389 is an invalid LDAP URL (protocol)');
       });
@@ -237,6 +247,8 @@ describe('Client', () => {
         expect((): void => {
           new Client({
             url: 'ftp://localhost:389',
+            createConnection,
+            createSecureConnection,
           });
         }).toThrow('ftp://localhost:389 is an invalid LDAP URL (protocol)');
       });
@@ -245,6 +257,8 @@ describe('Client', () => {
         expect((): void => {
           new Client({
             url: 'not-a-valid-url',
+            createConnection,
+            createSecureConnection,
           });
         }).toThrow('not-a-valid-url is an invalid LDAP URL (protocol)');
       });
@@ -253,6 +267,8 @@ describe('Client', () => {
         expect((): void => {
           new Client({
             url: '',
+            createConnection,
+            createSecureConnection,
           });
         }).toThrow(' is an invalid LDAP URL (protocol)');
       });
@@ -262,6 +278,8 @@ describe('Client', () => {
         // The client should not throw and should have a valid host
         const client = new Client({
           url: 'ldap:///',
+          createConnection,
+          createSecureConnection,
         });
 
         // @ts-expect-error - private field
@@ -276,6 +294,8 @@ describe('Client', () => {
     it('should not be connected if a method has not been called', () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       expect(client.isConnected).toBe(false);
@@ -284,6 +304,8 @@ describe('Client', () => {
     it('should not be connected after unbind has been called', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.bind(BIND_DN, BIND_PW);
@@ -298,6 +320,8 @@ describe('Client', () => {
     it('should be connected if a method has been called', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.bind(BIND_DN, BIND_PW);
@@ -314,6 +338,8 @@ describe('Client', () => {
     it('should allow bind/unbind to be called multiple times without error', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       expect(client.isConnected).toBe(false);
@@ -333,6 +359,8 @@ describe('Client', () => {
     it('should succeed on basic bind', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await expect(client.bind(BIND_DN, BIND_PW)).resolves.toBeUndefined();
@@ -347,6 +375,8 @@ describe('Client', () => {
     it('should succeed with ldaps://', async () => {
       await using client = new Client({
         url: SECURE_LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       // @ts-expect-error - private field
@@ -357,6 +387,8 @@ describe('Client', () => {
     it('should throw for invalid credentials', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await expect(client.bind(BIND_DN, 'AlsoNotAHotdog')).rejects.toBeInstanceOf(InvalidCredentialsError);
@@ -366,6 +398,8 @@ describe('Client', () => {
     it('should bind using EXTERNAL sasl mechanism', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       const testsDirectory = fileURLToPath(new URL('.', import.meta.url));
@@ -422,6 +456,8 @@ describe('Client', () => {
 
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.bind(`uid=user2,${BASE_DN}`, BIND_PW);
@@ -452,6 +488,8 @@ describe('Client', () => {
     it('should upgrade an existing clear-text connection to be secure', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await expect(client.startTLS()).resolves.toBeUndefined();
@@ -460,6 +498,8 @@ describe('Client', () => {
     it('should use secure connection for subsequent operations', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.startTLS();
@@ -472,6 +512,8 @@ describe('Client', () => {
     it('should succeed on basic unbind after successful bind', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.bind(BIND_DN, BIND_PW);
@@ -481,6 +523,8 @@ describe('Client', () => {
     it('should succeed if client.bind() was not called previously', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await expect(client.unbind()).resolves.toBeUndefined();
@@ -489,6 +533,8 @@ describe('Client', () => {
     it('should allow unbind to be called multiple times without error', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.bind(BIND_DN, BIND_PW);
@@ -502,6 +548,8 @@ describe('Client', () => {
       const client = new Client({
         connectTimeout: 5000,
         url: 'ldaps://localhost:389',
+        createConnection,
+        createSecureConnection,
       });
 
       try {
@@ -523,6 +571,8 @@ describe('Client', () => {
   describe('#compare()', () => {
     const client: Client = new Client({
       url: LDAP_URI,
+      createConnection,
+      createSecureConnection,
     });
 
     beforeAll(async () => {
@@ -559,6 +609,8 @@ describe('Client', () => {
   describe('#modify()', () => {
     const client: Client = new Client({
       url: LDAP_URI,
+      createConnection,
+      createSecureConnection,
     });
 
     beforeAll(async () => {
@@ -670,6 +722,8 @@ describe('Client', () => {
   describe('#add()', () => {
     const client: Client = new Client({
       url: LDAP_URI,
+      createConnection,
+      createSecureConnection,
     });
 
     beforeAll(async () => {
@@ -714,6 +768,8 @@ describe('Client', () => {
   describe('#modifyDN()', () => {
     const client: Client = new Client({
       url: LDAP_URI,
+      createConnection,
+      createSecureConnection,
     });
 
     beforeAll(async () => {
@@ -802,6 +858,8 @@ describe('Client', () => {
     it('should throw if fast bind is not supported', async () => {
       const client: Client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await expect(client.exop('1.2.840.113556.1.4.1781')).rejects.toThrow('unsupported extended operation Code: 0x2');
@@ -814,6 +872,8 @@ describe('Client', () => {
   describe('#search()', () => {
     const client: Client = new Client({
       url: LDAP_URI,
+      createConnection,
+      createSecureConnection,
     });
 
     beforeAll(async () => {
@@ -834,6 +894,8 @@ describe('Client', () => {
     it('should throw error if an operation is performed after the client has closed connection', async () => {
       const testClient = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       try {
@@ -1108,6 +1170,8 @@ describe('Client', () => {
   describe('#searchPaginated', () => {
     const client: Client = new Client({
       url: LDAP_URI,
+      createConnection,
+      createSecureConnection,
     });
 
     beforeAll(async () => {
@@ -1146,6 +1210,8 @@ describe('Client', () => {
       try {
         await using client = new Client({
           url: LDAP_URI,
+          createConnection,
+          createSecureConnection,
         });
         spy(client, 'unbind');
         await client.bind(BIND_DN, BIND_PW);
@@ -1159,6 +1225,8 @@ describe('Client', () => {
     it('should destroy socket after disposed', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.bind(BIND_DN, BIND_PW);
@@ -1172,6 +1240,8 @@ describe('Client', () => {
       const client = new Client({
         connectTimeout: 300,
         url: 'ldap://localhost:9999',
+        createConnection,
+        createSecureConnection,
       });
 
       try {
@@ -1191,6 +1261,8 @@ describe('Client', () => {
       const client = new Client({
         connectTimeout: 5000,
         url: 'ldaps://localhost:389',
+        createConnection,
+        createSecureConnection,
       });
 
       try {
@@ -1211,6 +1283,8 @@ describe('Client', () => {
         timeout: 5000,
         connectTimeout: 3000,
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
       // @ts-expect-error - it is private
       const messageMap = client.messageDetailsByMessageId;

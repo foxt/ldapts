@@ -1,3 +1,6 @@
+import { connect as createConnection } from 'node:net';
+import { connect as createSecureConnection } from 'node:tls';
+
 import { describe, expect, it } from 'vitest';
 
 import { Client, ServerSideSortingRequestControl } from '../src/index.js';
@@ -14,6 +17,8 @@ describe('Controls', () => {
     it('should sort values', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.bind(BIND_DN, BIND_PW);
@@ -35,6 +40,8 @@ describe('Controls', () => {
     it('should sort values (descending)', async () => {
       const client = new Client({
         url: LDAP_URI,
+        createConnection,
+        createSecureConnection,
       });
 
       await client.bind(BIND_DN, BIND_PW);

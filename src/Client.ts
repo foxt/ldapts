@@ -1,6 +1,5 @@
-import * as crypto from 'node:crypto';
-import * as net from 'node:net';
-import * as tls from 'node:tls';
+import type * as net from 'node:net';
+import type * as tls from 'node:tls';
 import { debuglog } from 'node:util';
 
 import { Attribute } from './Attribute.js';
@@ -51,6 +50,16 @@ type SocketWithId = { id?: string } & (net.Socket | tls.TLSSocket);
 
 export interface ClientOptions {
   /**
+   * TCP connection factory function.
+   * You probably just want to directly pass `net.connect` here.
+   */
+  createConnection?: typeof net.connect;
+  /**
+   * TLS connection factory function.
+   * You probably just want to directly pass `tls.connect` here.
+   */
+  createSecureConnection?: typeof tls.connect;
+  /**
    * A valid LDAP URL (proto/host/port only)
    */
   url: string;
@@ -62,10 +71,6 @@ export interface ClientOptions {
    * Milliseconds client should wait before timing out on TCP connections
    */
   connectTimeout?: number;
-  /**
-   * Additional options passed to TLS connection layer when connecting via ldaps://
-   */
-  tlsOptions?: tls.ConnectionOptions;
   /**
    * Force strict DN parsing for client methods (Default: true)
    */
@@ -188,9 +193,7 @@ export class Client {
     }
 
     const isSecureProtocol = scheme === 'ldaps';
-    // Check if tlsOptions has at least one defined property (not just an empty object or object with all undefined values)
-    const hasTlsOptions = !!this.clientOptions.tlsOptions && Object.values(this.clientOptions.tlsOptions).some((value) => value !== undefined);
-    this.secure = isSecureProtocol || hasTlsOptions;
+    this.secure = isSecureProtocol;
 
     // hostname excludes port; for IPv6, it includes brackets (e.g., '[::1]')
     let host = parsedUrl.hostname;
@@ -247,7 +250,11 @@ export class Client {
     }
 
     this.socket = await new Promise((resolve: (value: SocketWithId) => void, reject: (reason: Error) => void) => {
-      const secureSocket = tls.connect(options);
+      if (!this.clientOptions.createSecureConnection) {
+        throw new Error('startTLS requires a createSecureConnection function to be provided in ClientOptions');
+      }
+
+      const secureSocket = this.clientOptions.createSecureConnection(options);
       secureSocket.once('secureConnect', () => {
         secureSocket.removeAllListeners('error');
 
@@ -829,13 +836,21 @@ export class Client {
 
     return new Promise((resolve, reject) => {
       if (this.secure) {
-        this.socket = tls.connect(this.port, this.host, this.clientOptions.tlsOptions);
+        if (!this.clientOptions.createSecureConnection) {
+          throw new Error('Connecting to a ldaps:// server requires a createSecureConnection function to be provided in ClientOptions');
+        }
+
+        this.socket = this.clientOptions.createSecureConnection(this.port, this.host);
         this.socket.id = crypto.randomUUID();
         this.socket.once('secureConnect', () => {
           this._onConnect(resolve);
         });
       } else {
-        this.socket = net.connect(this.port, this.host);
+        if (!this.clientOptions.createConnection) {
+          throw new Error('Connecting to a plain ldap:// server requires a createConnection function to be provided in ClientOptions');
+        }
+
+        this.socket = this.clientOptions.createConnection(this.port, this.host);
         this.socket.id = crypto.randomUUID();
         this.socket.once('connect', () => {
           this._onConnect(resolve);
