@@ -1,7 +1,4 @@
-import { TextDecoder } from 'node:util';
-
-import { type BerReader, type BerWriter } from './ber/index.js';
-import { Ber } from './ber/index.js';
+import { Ber, type BerReader, type BerWriter } from './ber/index.js';
 import { ProtocolOperation } from './ProtocolOperation.js';
 
 const utfDecoder = new TextDecoder('utf8', { fatal: true });
